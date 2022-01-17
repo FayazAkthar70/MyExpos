@@ -1,0 +1,23 @@
+ 	type
+	student {
+	int x;
+	str name;
+	}
+	endtype
+	
+	int main()
+	{
+	decl
+	int val;
+	student r;
+	enddecl
+	begin
+	val = initialize();
+	r = alloc(); // r stores address of a node in the heap memory
+	r.x = 5;
+	r.name = "john";
+	write(r.name);
+	write(r.x); // Now 3 will be output.
+	return 0;
+	end
+	}

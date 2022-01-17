@@ -1,0 +1,53 @@
+gmod0 - resource manager mod
+	ACQUIRE_BUFFER = 1
+	RELEASE_BUFFER = 2
+	ACQUIRE_DISK = 3
+	ACQUIRE_INODE = 4
+	RELEASE_INODE = 5
+	ACQUIRE_SEMAPHORE = 6
+	RELEASE_SEMAPHORE = 7
+	ACQUIRE_TERMINAL = 8
+	RELEASE_TERMINAL = 9
+
+mod1 - process manager mod
+        GET_PCB_ENTRY = 1
+	FREE_USER_AREA_PAGE = 2
+	EXIT_PROCESS = 3
+	FREE_PAGE_TABLE = 4
+	KILL_ALL = 5     
+
+mod2 - memory manager mod
+	GET_FREE_PAGE = 1
+	RELEASE_PAGE = 2
+	GET_FREE_BLOCK = 3
+	RELEASE_BLOCK = 4
+	GET_CODE_PAGE = 5
+	GET_SWAP_BLOCK = 6
+	
+mod3 - file manager mod
+        BUFFERED_WRITE = 1
+	BUFFERED_READ = 2
+	OPEN = 3
+	CLOSE = 4
+
+mod4- device manager mod
+	DISK_STORE = 1
+	DISK_LOAD = 2
+	TERMINAL_WRITE = 3
+	TERMINAL_READ = 4
+
+mod5- scheduler mod
+
+mod7- boot module
+
+int4 - create,delete file
+int5 - open,close file
+int6 - terminal read, file read
+int9- exec system call
+int7 - terminal write, file write
+int8 - fork sys call
+int10 - exit sys call
+int11 - wait,signal,getpid,getppid
+int13 - semget, semrelease
+int14 - semlock, semunlock
+int15 - shutdown
