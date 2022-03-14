@@ -1,0 +1,22 @@
+
+int main() 
+{
+decl
+	int temp;
+	str file1,file2;
+enddecl
+begin
+	temp=exposcall("Fork");
+	if(temp==0) then
+		write ("child");
+		temp = exposcall("Read",-1,file1);
+		temp = exposcall("Exec",file1);
+	endif;
+	if(temp!=0) then
+		write ("parent");
+		temp = exposcall("Read",-1,file2);
+		temp = exposcall("Exec",file2);
+	endif;
+	return 0;
+end
+}
