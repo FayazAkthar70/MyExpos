@@ -1,0 +1,197 @@
+//Resource Manager
+alias func R1;
+
+//Acquire buffer
+if func == 1 then
+    alias buffer R2;
+    alias pid R3;
+
+    while [BUFFER_TABLE + 4*buffer + 2] != -1 do
+        [PROCESS_TABLE + pid*16 + 4] = WAIT_BUFFER;
+        [PROCESS_TABLE + pid*16 + 5] = buffer;
+        multipush(R1, R2, R3);
+        call SCHEDULER;
+        multipop(R1, R2, R3);
+    endwhile;
+    //lock the buffer
+    [BUFFER_TABLE + 4*buffer + 2] = pid;
+    R0 = 0;
+    return;
+endif;
+
+//Release buffer
+if func == 2 then
+    alias buffer R2;
+    alias pid R3;
+    //if not acquired by same pid
+    if [BUFFER_TABLE + 4*buffer + 2] != pid then
+        R0 = -1;
+        return;
+    endif;
+
+    //release
+    [BUFFER_TABLE + 4*buffer + 2] = -1;
+    alias idx R4;
+    idx = 0;
+    while idx < MAX_PROC_NUM do
+        if [PROCESS_TABLE + idx*16 +4] == WAIT_BUFFER && [PROCESS_TABLE + idx*16 + 5] == buffer then
+            [PROCESS_TABLE + idx*16 + 4] = READY;
+        endif;
+        idx = idx + 1;
+    endwhile;
+    R0 = 0;
+    return;
+endif;
+
+//Acquire disk
+if func == 3 then
+    alias pid R2;
+    while([DISK_STATUS_TABLE] == 1) do
+        [PROCESS_TABLE + pid*16 + 4] = WAIT_DISK;
+        multipush(R1, R2);
+        call SCHEDULER;
+        multipop(R1, R2);
+    endwhile;
+    [DISK_STATUS_TABLE + 0] = 1;
+    [DISK_STATUS_TABLE + 4] = pid;
+    R0 = 0;
+    return;
+endif;
+
+//Acquire inode
+if func == 4 then
+    alias inode R2;
+    alias pid R3;
+    if inode == -1 then
+        breakpoint;
+    endif;
+    //busy wait until inode is free
+    while [FILE_STATUS_TABLE + 4*inode] != -1 do
+        [PROCESS_TABLE + 16*pid + 4] = WAIT_FILE;
+        [PROCESS_TABLE + 16*pid + 5] = inode;
+        multipush(R1, R2, R3);
+        call SCHEDULER;
+        multipop(R1, R2, R3);
+    endwhile;
+    //return if file got deleted
+    if [INODE_TABLE + 16*inode + 1] == -1 then
+        R0 = -1;
+        return;
+    endif;
+    //lock the file
+    [FILE_STATUS_TABLE + 4*inode] = pid;
+    R0 = 0;
+    return;
+endif;
+
+//Release inode
+if func == 5 then
+    alias inode R2;
+    alias pid R3;
+    //if not acquired by same pid
+    if [FILE_STATUS_TABLE + 4*inode] != pid then
+        R0 = -1;
+        return;
+    endif;
+
+    //release
+    [FILE_STATUS_TABLE + 4*inode] = -1;
+    alias idx R4;
+    idx = 0;
+    while idx < MAX_PROC_NUM do
+        if [PROCESS_TABLE + idx*16 +4] == WAIT_FILE && [PROCESS_TABLE + idx*16 + 5] == inode then
+            [PROCESS_TABLE + idx*16 + 4] = READY;
+        endif;
+        idx = idx + 1;
+    endwhile;
+    R0 = 0;
+    return;
+endif;
+
+
+//Acquire semaphore
+if func == 6 then
+    alias semidx R4;
+    semidx = 0;
+    //Get a free semaphore indicated by process count of 0
+    while(semidx < MAX_SEM_COUNT && [SEMAPHORE_TABLE + 4*semidx +1] != 0) do
+        semidx = semidx + 4;
+    endwhile;
+
+    //If not availble return -1
+    if semidx == MAX_SEM_COUNT then
+        R0 = -1;
+        return;
+    endif;
+
+    //set process ocunt to 1 and locking pid to -1
+    [SEMAPHORE_TABLE + 4*semidx + 1] = 1;
+    [SEMAPHORE_TABLE + 4*semidx] = -1;
+    //return sem index 
+    R0 = semidx;
+    return;
+endif;
+
+//Release semaphore
+if func == 7 then
+    alias semidx R2;
+    alias pid R3;
+    //Only release if locked by current process
+    if [SEMAPHORE_TABLE + 4*semidx] == pid then
+        [SEMAPHORE_TABLE + 4*semidx] = -1;
+        alias ptable R4;
+        ptable = 0;
+        //wake all process which are blocked by the semphonre
+        while ptable < MAX_PROC_NUM do
+            if [PROCESS_TABLE + 16*ptable + 4] == WAIT_SEMAPHORE && [PROCESS_TABLE + 16*ptable + 5] == semidx then
+                [PROCESS_TABLE + 16*ptable + 4] = READY;
+            endif;
+            ptable = ptable + 1;
+        endwhile;
+        //dectement process count
+    endif;
+    [SEMAPHORE_TABLE + 4*semidx + 1] = [SEMAPHORE_TABLE + 4*semidx + 1] - 1;
+    return;
+endif;
+
+
+//Acquire termnial
+if func == 8 then
+    alias pid R2;
+    //busy wait
+    while([TERMINAL_STATUS_TABLE] == 1) do
+        [PROCESS_TABLE + 16*[SYSTEM_STATUS_TABLE + 1] + 4] = WAIT_TERMINAL;
+        multipush(R1, R2);
+        call SCHEDULER;
+        //only return when termial is released by some process
+        //Check if any process acquired terminal in the mean time
+        multipop(R1, R2);
+    endwhile;
+    //Terminal acquired
+    [TERMINAL_STATUS_TABLE] = 1;
+    [TERMINAL_STATUS_TABLE + 1] = pid;
+    return;
+endif;
+
+//Release terminal
+if func == 9 then
+    alias pid R2;
+    //Current pid hsould match the pid which hold the terminal before
+    if pid != [TERMINAL_STATUS_TABLE + 1] then
+        R0 = -1;
+        return;
+    endif;
+    //Release terminal
+    [TERMINAL_STATUS_TABLE] = 0;
+    alias cur_table R3;
+    cur_table = PROCESS_TABLE;
+    //Tell all other process that terminal is free now, scheduler will do the rest
+    while(cur_table < 28927) do 
+        if([cur_table + 1] != -1 && [cur_table + 4] == WAIT_TERMINAL) then
+            [cur_table + 4] = READY;
+        endif;
+        cur_table = cur_table + 16;
+    endwhile;
+    R0 = 0;
+    return;
+endif;
